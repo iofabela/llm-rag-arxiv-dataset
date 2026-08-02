@@ -1,13 +1,14 @@
 import os
-from dataclasses import dataclass
 
 from dotenv import load_dotenv
+from pydantic import BaseModel, ConfigDict
 
 load_dotenv()
 
 
-@dataclass(frozen=True)
-class Settings:
+class Settings(BaseModel):
+    model_config = ConfigDict(frozen=True)
+
     openai_api_key: str = os.getenv("OPENAI_API_KEY", "")
     openai_chat_model: str = os.getenv("OPENAI_CHAT_MODEL", "gpt-4o-mini")
     openai_embedding_model: str = os.getenv("OPENAI_EMBEDDING_MODEL", "text-embedding-3-small")
