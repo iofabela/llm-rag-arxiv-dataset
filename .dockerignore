@@ -1,0 +1,10 @@
+.git
+.dlt
+.env
+.venv
+__pycache__
+artifacts
+data
+docs
+notebooks
+*.pyc

@@ -235,7 +235,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(TOP_K, ev, mo, results_df):
     summary_df = ev.summarize(results_df, TOP_K)
     mo.vstack([mo.md("### Per-strategy summary"), mo.ui.table(summary_df)])
@@ -301,7 +301,7 @@ def _(np, plt):
     return (make_comparison_figure,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(TOP_K, make_comparison_figure, mo, summary_df):
     fig_retrieval = make_comparison_figure(
         summary_df,
@@ -315,7 +315,7 @@ def _(TOP_K, make_comparison_figure, mo, summary_df):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(make_comparison_figure, mo, summary_df):
     fig_cost = make_comparison_figure(
         summary_df,
@@ -329,7 +329,7 @@ def _(make_comparison_figure, mo, summary_df):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(make_comparison_figure, mo, summary_df):
     fig_latency = make_comparison_figure(
         summary_df,
@@ -343,7 +343,7 @@ def _(make_comparison_figure, mo, summary_df):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(make_comparison_figure, mo, summary_df):
     fig_relevancy = make_comparison_figure(
         summary_df,
@@ -355,7 +355,7 @@ def _(make_comparison_figure, mo, summary_df):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     mo.md("""
     ## Composite score
@@ -370,15 +370,54 @@ def _(mo):
 
 @app.cell
 def _(mo):
-    weight_retrieval = mo.ui.slider(0, 1, value=0.30, step=0.05, label="Retrieval quality weight")
-    weight_relevancy = mo.ui.slider(0, 1, value=0.35, step=0.05, label="Relevancy weight")
-    weight_speed = mo.ui.slider(0, 1, value=0.15, step=0.05, label="Speed weight")
-    weight_cost = mo.ui.slider(0, 1, value=0.20, step=0.05, label="Cost weight")
-    mo.vstack([weight_retrieval, weight_relevancy, weight_speed, weight_cost])
-    return weight_cost, weight_relevancy, weight_retrieval, weight_speed
+    DEFAULT_WEIGHTS = {
+        "retrieval": 0.30,
+        "relevancy": 0.35,
+        "speed": 0.15,
+        "cost": 0.20,
+    }
+    get_weights, set_weights = mo.state(DEFAULT_WEIGHTS)
+    return DEFAULT_WEIGHTS, get_weights, set_weights
 
 
 @app.cell
+def _(DEFAULT_WEIGHTS, mo, set_weights):
+    reset_button = mo.ui.button(
+        label="Reset to defaults",
+        on_click=lambda _: set_weights(DEFAULT_WEIGHTS.copy()),
+    )
+    return (reset_button,)
+
+
+@app.cell(hide_code=True)
+def _(get_weights, mo, reset_button, set_weights):
+    weight_retrieval = mo.ui.slider(
+        0, 1, value=get_weights()["retrieval"], step=0.05,
+        label="Retrieval quality weight",
+        on_change=lambda v: set_weights({**get_weights(), "retrieval": v}),
+    )
+    weight_relevancy = mo.ui.slider(
+        0, 1, value=get_weights()["relevancy"], step=0.05,
+        label="Relevancy weight",
+        on_change=lambda v: set_weights({**get_weights(), "relevancy": v}),
+    )
+    weight_speed = mo.ui.slider(
+        0, 1, value=get_weights()["speed"], step=0.05,
+        label="Speed weight",
+        on_change=lambda v: set_weights({**get_weights(), "speed": v}),
+    )
+    weight_cost = mo.ui.slider(
+        0, 1, value=get_weights()["cost"], step=0.05,
+        label="Cost weight",
+        on_change=lambda v: set_weights({**get_weights(), "cost": v}),
+    )
+
+    mo.vstack([weight_retrieval, weight_relevancy, weight_speed, weight_cost, reset_button])
+
+    return weight_cost, weight_relevancy, weight_retrieval, weight_speed
+
+
+@app.cell(hide_code=True)
 def _(
     TOP_K,
     ev,
@@ -407,7 +446,7 @@ def _(
     return score_df, winner
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(make_comparison_figure, mo, score_df, winner):
     fig_score = make_comparison_figure(score_df, [("score", "Composite Score", "{:.3f}")], ncols=1, highlight=winner)
     fig_score.savefig("artifacts/eval_composite_score.png", dpi=150)
