@@ -26,6 +26,43 @@ services:
       timeout: 5s
       retries: 10
 
+  rag-postgres:
+    image: postgres:16-alpine
+    container_name: arxiv-rag-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-arxiv_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-arxiv_rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arxiv_rag}
+    ports:
+      - "5432:5432"
+    volumes:
+      - rag_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: arxiv-rag-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      POSTGRES_DB: ${POSTGRES_DB:-arxiv_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-arxiv_rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arxiv_rag}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      rag-postgres:
+        condition: service_healthy
+
   dlt-ingestion:
     build:
       context: .
@@ -96,3 +133,5 @@ volumes:
   kestra_postgres_data:
   kestra_data:
   dlt_state:
+  rag_postgres_data:
+  grafana_data:
