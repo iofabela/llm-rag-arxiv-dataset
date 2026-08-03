@@ -5,8 +5,8 @@ from pydantic import BaseModel
 from .config import settings
 from .indexing import RagIndex, get_index
 from .openai_client import get_client
-from .rerank import RankedResult, rerank
-from .search import hybrid_search
+from .rerank import RankedResult
+from .strategies import RETRIEVAL_STRATEGIES
 
 SYSTEM_PROMPT = (
     "You are a research assistant answering questions about AI/ML research papers. "
@@ -69,11 +69,17 @@ def build_source_papers(results: list[RankedResult]) -> list[SourcePaper]:
     ]
 
 
-def answer_question(question: str, top_k: int | None = None, index: RagIndex | None = None) -> RagAnswer:
+def answer_question(
+    question: str,
+    top_k: int | None = None,
+    index: RagIndex | None = None,
+    strategy: str | None = None,
+) -> RagAnswer:
     idx = index or get_index()
+    strategy_name = strategy or settings.retrieval_strategy
+    strategy_fn = RETRIEVAL_STRATEGIES[strategy_name]
 
-    candidates = hybrid_search(idx, question)
-    ranked = rerank(question, candidates, top_k=top_k)
+    ranked = strategy_fn(idx, question, top_k or settings.rerank_top_k)
 
     if not ranked:
         return RagAnswer(answer=NO_RESULTS_ANSWER, sources=[])

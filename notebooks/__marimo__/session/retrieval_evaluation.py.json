@@ -1,0 +1,243 @@
+{
+  "version": "1",
+  "metadata": {
+    "marimo_version": "0.23.16",
+    "script_metadata_hash": null
+  },
+  "cells": [
+    {
+      "id": "Hbol",
+      "code_hash": "259fb08c835c23df6a166fdb35c02580",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "MJUe",
+      "code_hash": "0e1328a57192967fa9c7b8a9fdfdb89a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h1 id=\"retrieval-strategy-evaluation\">Retrieval Strategy Evaluation</h1>\n<span class=\"paragraph\">Compares three retrieval strategies for the arXiv RAG pipeline on a sample of\nthe dataset:</span>\n<ol>\n<li><strong>hybrid_rerank</strong> -- NumPy/BM25 hybrid search (RRF) + local cross-encoder rerank (current production default)</li>\n<li><strong>hybrid_only</strong> -- NumPy/BM25 hybrid search (RRF) only, no rerank</li>\n<li><strong>elasticsearch_rrf</strong> -- Elasticsearch's native RRF retriever (BM25 + kNN), no rerank</li>\n</ol>\n<span class=\"paragraph\">For each strategy we measure <strong>retrieval quality</strong> (hit rate / MRR against a\nsynthetic ground-truth question generated per sampled paper), <strong>answer\nrelevancy</strong> (LLM-as-a-judge), <strong>token cost</strong>, and <strong>latency</strong> -- then combine\nthem into a single composite score to pick a winner.</span>\n<span class=\"paragraph\">All three strategies share the exact same generation prompt and model; only\nthe retrieval step differs, so the comparison isolates retrieval quality.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "vblA",
+      "code_hash": "60c317d32dedd0088a1ff3bca1ca14c4",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/plain": ""
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "bkHC",
+      "code_hash": "0a0593c5ebca72cb47e3273fbf2ce4e3",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Loaded <strong>10,000</strong> papers, embeddings shape <code>(10000, 1536)</code>.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "lEQa",
+      "code_hash": "60d8d37774b011dd90eb6e65405790f9",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Warmed up OpenAI client, cross-encoder model, and Elasticsearch client.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "PKri",
+      "code_hash": "6a5141b12e0284f5dbb04535a5993a5e",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"elasticsearch-setup\">Elasticsearch setup</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Xref",
+      "code_hash": "c8c628bf59c2348b0e091129b873e6a2",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\"><strong>Elasticsearch:</strong> Elasticsearch index already present, reusing it.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "SFPL",
+      "code_hash": "143ce59dcb097bad85975d62f7055978",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><span class=\"paragraph\">Evaluating strategies: <strong>hybrid_rerank, hybrid_only, elasticsearch_rrf</strong></span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "BYtC",
+      "code_hash": "8b8258fc2691bd118c997e3f5c837a89",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"evaluation-sample-ground-truth-questions\">Evaluation sample &amp; ground-truth questions</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "RGSE",
+      "code_hash": "942efffcd1dee965b3a56d3b927aecd9",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Kclp",
+      "code_hash": "84be818a2d1ca99ac8fc1dc84f8308d7",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "emfo",
+      "code_hash": "631319f47583c82f30f931be325bc00a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"running-the-evaluation\">Running the evaluation</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "Hstk",
+      "code_hash": "a06cb5a634bd728a3d6a12885a1aefe1",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "nWHF",
+      "code_hash": "990ab171c11cd84b67dfa677f706727a",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"results\">Results</h2></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "iLit",
+      "code_hash": "fddf74fb9b268503af27c1d74b9635bc",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ZHCJ",
+      "code_hash": "763d3bab147d25b9334e9349f70e2ed8",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ROlb",
+      "code_hash": "6329193a78dea4b5e7f137aad4029930",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "qnkX",
+      "code_hash": "2f0bb6848f6156518b310c56699370e2",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "TqIu",
+      "code_hash": "13adcfcb3a3a6b64f21f9c7af2cc5537",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Vxnm",
+      "code_hash": "3db9950531f54f2c073a11ed46904b77",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "DnEU",
+      "code_hash": "46c8e6e5c2e51a2233b5162856ed4ec4",
+      "outputs": [
+        {
+          "type": "data",
+          "data": {
+            "text/markdown": "<span class=\"markdown prose dark:prose-invert contents\"><h2 id=\"composite-score\">Composite score</h2>\n<span class=\"paragraph\">Combines all four dimensions into one score per strategy (each metric is\nmin-max normalized across strategies, cost/latency inverted so \"lower is\nbetter\" scores higher). Adjust the weights to see how the ranking shifts\nunder different priorities.</span></span>"
+          }
+        }
+      ],
+      "console": []
+    },
+    {
+      "id": "ulZA",
+      "code_hash": "de258143428b06239c382a09e3cc94e4",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ecfG",
+      "code_hash": "2fcaffd6a9a9e5c48c38156596de0c6d",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "Pvdt",
+      "code_hash": "a3a5b07350c420ff5a58bb0b83870708",
+      "outputs": [],
+      "console": []
+    },
+    {
+      "id": "ZBYS",
+      "code_hash": "852538e7471dcbf4963894a46330ecd2",
+      "outputs": [],
+      "console": []
+    }
+  ]
+}

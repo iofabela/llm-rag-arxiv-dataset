@@ -26,6 +26,16 @@ class Settings(BaseModel):
     rerank_top_k: int = int(os.getenv("RERANK_TOP_K", "5"))
     rrf_k: int = int(os.getenv("RRF_K", "60"))
 
+    es_url: str = os.getenv("ES_URL", "http://localhost:9200")
+    es_api_key: str = os.getenv("ES_API_KEY", "")
+    es_index_name: str = os.getenv("ES_INDEX_NAME", "arxiv_papers")
+
+    # One of: hybrid_rerank, hybrid_only, elasticsearch_rrf (see strategies.py).
+    # elasticsearch_rrf won the 200-sample comparison in
+    # notebooks/retrieval_evaluation.py (composite score 0.763 vs 0.663 for
+    # hybrid_rerank) -- requires Elasticsearch running (docker compose up -d).
+    retrieval_strategy: str = os.getenv("RETRIEVAL_STRATEGY", "elasticsearch_rrf")
+
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "200"))
 
     api_host: str = os.getenv("API_HOST", "0.0.0.0")
