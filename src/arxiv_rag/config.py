@@ -46,5 +46,12 @@ class Settings(BaseModel):
     api_port: int = int(os.getenv("API_PORT", "8000"))
     backend_url: str = os.getenv("BACKEND_URL", "http://localhost:8000")
 
+    # Postgres -- stores conversations + user feedback, read by Grafana.
+    postgres_host: str = os.getenv("POSTGRES_HOST", "localhost")
+    postgres_port: int = int(os.getenv("POSTGRES_PORT", "5432"))
+    postgres_db: str = os.getenv("POSTGRES_DB", "arxiv_rag")
+    postgres_user: str = os.getenv("POSTGRES_USER", "arxiv_rag")
+    postgres_password: str = os.getenv("POSTGRES_PASSWORD", "arxiv_rag")
+
 
 settings = Settings()

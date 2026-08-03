@@ -1,5 +1,7 @@
 """Orchestrates hybrid retrieval -> rerank -> grounded chat completion."""
 
+import time
+
 from pydantic import BaseModel
 
 from .config import settings
@@ -7,6 +9,19 @@ from .indexing import RagIndex, get_index
 from .openai_client import get_client
 from .rerank import RankedResult
 from .strategies import RETRIEVAL_STRATEGIES
+
+# USD per 1M tokens (input, output). Unpriced models cost 0 rather than fail.
+MODEL_PRICING = {
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4o": (2.50, 10.00),
+    "gpt-4.1-mini": (0.40, 1.60),
+    "gpt-4.1": (2.00, 8.00),
+}
+
+
+def _compute_cost(model: str, prompt_tokens: int, completion_tokens: int) -> float:
+    input_price, output_price = MODEL_PRICING.get(model, (0.0, 0.0))
+    return (prompt_tokens * input_price + completion_tokens * output_price) / 1_000_000
 
 SYSTEM_PROMPT = (
     "You are a research assistant answering questions about AI/ML research papers. "
@@ -35,6 +50,13 @@ class SourcePaper(BaseModel):
 class RagAnswer(BaseModel):
     answer: str
     sources: list[SourcePaper]
+    model: str
+    retrieval_strategy: str
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    response_time: float
+    cost: float
 
 
 def _format_published(value) -> str:
@@ -75,6 +97,8 @@ def answer_question(
     index: RagIndex | None = None,
     strategy: str | None = None,
 ) -> RagAnswer:
+    start = time.perf_counter()
+
     idx = index or get_index()
     strategy_name = strategy or settings.retrieval_strategy
     strategy_fn = RETRIEVAL_STRATEGIES[strategy_name]
@@ -82,7 +106,17 @@ def answer_question(
     ranked = strategy_fn(idx, question, top_k or settings.rerank_top_k)
 
     if not ranked:
-        return RagAnswer(answer=NO_RESULTS_ANSWER, sources=[])
+        return RagAnswer(
+            answer=NO_RESULTS_ANSWER,
+            sources=[],
+            model=settings.openai_chat_model,
+            retrieval_strategy=strategy_name,
+            prompt_tokens=0,
+            completion_tokens=0,
+            total_tokens=0,
+            response_time=time.perf_counter() - start,
+            cost=0.0,
+        )
 
     context = build_context_block(ranked)
     user_prompt = USER_PROMPT_TEMPLATE.format(context=context, question=question)
@@ -97,5 +131,19 @@ def answer_question(
         temperature=0.2,
     )
     answer_text = response.choices[0].message.content or ""
+    usage = response.usage
+    prompt_tokens = usage.prompt_tokens if usage else 0
+    completion_tokens = usage.completion_tokens if usage else 0
+    total_tokens = usage.total_tokens if usage else 0
 
-    return RagAnswer(answer=answer_text, sources=build_source_papers(ranked))
+    return RagAnswer(
+        answer=answer_text,
+        sources=build_source_papers(ranked),
+        model=settings.openai_chat_model,
+        retrieval_strategy=strategy_name,
+        prompt_tokens=prompt_tokens,
+        completion_tokens=completion_tokens,
+        total_tokens=total_tokens,
+        response_time=time.perf_counter() - start,
+        cost=_compute_cost(settings.openai_chat_model, prompt_tokens, completion_tokens),
+    )
