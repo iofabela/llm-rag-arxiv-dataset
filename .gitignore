@@ -9,6 +9,7 @@ __pycache__/
 # Data & build artifacts -- fetched/generated caches, not source.
 data/
 artifacts/
+.dlt/
 
 # OS
 .DS_Store

@@ -19,6 +19,10 @@ class Settings(BaseModel):
     data_dir: str = os.getenv("DATA_DIR", "data")
     raw_csv_filename: str = os.getenv("RAW_CSV_FILENAME", "arxiv_ai.csv")
     artifacts_dir: str = os.getenv("ARTIFACTS_DIR", "artifacts")
+    dlt_database_path: str = os.getenv("DLT_DATABASE_PATH", "data/arxiv_papers.duckdb")
+    dlt_pipelines_dir: str = os.getenv("DLT_PIPELINES_DIR", ".dlt/pipelines")
+    dlt_dataset_name: str = os.getenv("DLT_DATASET_NAME", "arxiv_data")
+    dlt_resource_name: str = os.getenv("DLT_RESOURCE_NAME", "arxiv_papers")
 
     cross_encoder_model: str = os.getenv("CROSS_ENCODER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
@@ -31,10 +35,10 @@ class Settings(BaseModel):
     es_index_name: str = os.getenv("ES_INDEX_NAME", "arxiv_papers")
 
     # One of: hybrid_rerank, hybrid_only, elasticsearch_rrf (see strategies.py).
-    # elasticsearch_rrf won the 200-sample comparison in
-    # notebooks/retrieval_evaluation.py (composite score 0.763 vs 0.663 for
-    # hybrid_rerank) -- requires Elasticsearch running (docker compose up -d).
-    retrieval_strategy: str = os.getenv("RETRIEVAL_STRATEGY", "elasticsearch_rrf")
+    # notebooks/retrieval_evaluation.py
+    # -- requires Elasticsearch running (docker compose up -d).
+    retrieval_strategy: str = os.getenv("RETRIEVAL_STRATEGY", "hybrid_only")
+    print(f"| RETRIEVAL_STRATEGY | :: {retrieval_strategy}")
 
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "200"))
 
