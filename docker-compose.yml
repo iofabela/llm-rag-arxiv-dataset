@@ -1,0 +1,137 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.17.0
+    container_name: arxiv-rag-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - ES_JAVA_OPTS=-Xms1g -Xmx1g
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: arxiv-rag-kestra-postgres
+    environment:
+      POSTGRES_DB: kestra
+      POSTGRES_USER: kestra
+      POSTGRES_PASSWORD: kestra
+    volumes:
+      - kestra_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rag-postgres:
+    image: postgres:16-alpine
+    container_name: arxiv-rag-postgres
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-arxiv_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-arxiv_rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arxiv_rag}
+    ports:
+      - "5432:5432"
+    volumes:
+      - rag_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    container_name: arxiv-rag-grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-admin}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      POSTGRES_DB: ${POSTGRES_DB:-arxiv_rag}
+      POSTGRES_USER: ${POSTGRES_USER:-arxiv_rag}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arxiv_rag}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      rag-postgres:
+        condition: service_healthy
+
+  dlt-ingestion:
+    build:
+      context: .
+      dockerfile: Dockerfile.ingestion
+    container_name: arxiv-rag-dlt-ingestion
+    environment:
+      DATA_DIR: /app/data
+      RAW_CSV_FILENAME: ${RAW_CSV_FILENAME:-arxiv_ai.csv}
+      DLT_DATABASE_PATH: /app/data/arxiv_papers.duckdb
+      DLT_PIPELINES_DIR: /app/.dlt/pipelines
+      DLT_DATASET_NAME: ${DLT_DATASET_NAME:-arxiv_data}
+      DLT_RESOURCE_NAME: ${DLT_RESOURCE_NAME:-arxiv_papers}
+      KAGGLE_DATASET: ${KAGGLE_DATASET:-yasirabdaali/arxivorg-ai-research-papers-dataset}
+      KAGGLE_FILE_PATH: ${KAGGLE_FILE_PATH:-arxiv_ai.csv}
+      KAGGLE_USERNAME: ${KAGGLE_USERNAME:-}
+      KAGGLE_KEY: ${KAGGLE_KEY:-}
+    volumes:
+      - ./data:/app/data
+      - dlt_state:/app/.dlt
+    ports:
+      - "8090:8090"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8090/health')"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kestra:
+    image: kestra/kestra:v1.3.30
+    container_name: arxiv-rag-kestra
+    user: "root"
+    command: server standalone --flow-path /app/flows
+    environment:
+      KESTRA_CONFIGURATION: |
+        datasources:
+          postgres:
+            url: jdbc:postgresql://postgres:5432/kestra
+            driverClassName: org.postgresql.Driver
+            username: kestra
+            password: kestra
+        kestra:
+          repository:
+            type: postgres
+          storage:
+            type: local
+            local:
+              base-path: "/app/storage"
+          queue:
+            type: postgres
+          tasks:
+            tmp-dir:
+              path: /tmp/kestra-wd/tmp
+          url: http://localhost:8080/
+    volumes:
+      - kestra_data:/app/storage
+      - ./flows:/app/flows:ro
+      - /tmp/kestra-wd:/tmp/kestra-wd
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dlt-ingestion:
+        condition: service_healthy
+
+volumes:
+  es_data:
+  kestra_postgres_data:
+  kestra_data:
+  dlt_state:
+  rag_postgres_data:
+  grafana_data:

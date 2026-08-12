@@ -1,0 +1,18 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Environment
+.env
+
+# Data & build artifacts -- fetched/generated caches, not source.
+data/
+artifacts/
+.dlt/
+
+# OS
+.DS_Store
+
+# Any LLM settings
+.claude

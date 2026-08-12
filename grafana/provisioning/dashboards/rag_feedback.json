@@ -1,0 +1,191 @@
+{
+  "title": "Arxiv RAG - Conversations & Feedback",
+  "uid": "arxiv-rag-feedback",
+  "schemaVersion": 39,
+  "version": 1,
+  "editable": true,
+  "refresh": "30s",
+  "time": { "from": "now-7d", "to": "now" },
+  "tags": ["arxiv-rag"],
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Total Conversations",
+      "gridPos": { "x": 0, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS \"Conversations\" FROM conversations",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" } }, "overrides": [] }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Avg Response Time (s)",
+      "gridPos": { "x": 6, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT ROUND(AVG(response_time)::numeric, 2) AS \"Avg response time\" FROM conversations",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "s", "color": { "mode": "thresholds" } }, "overrides": [] }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Total OpenAI Cost",
+      "gridPos": { "x": 12, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT ROUND(SUM(cost)::numeric, 4) AS \"Total cost\" FROM conversations",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "unit": "currencyUSD", "color": { "mode": "thresholds" } }, "overrides": [] }
+    },
+    {
+      "id": 4,
+      "type": "stat",
+      "title": "Avg Tokens / Conversation",
+      "gridPos": { "x": 18, "y": 0, "w": 6, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT ROUND(AVG(total_tokens)::numeric, 0) AS \"Avg tokens\" FROM conversations",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": { "defaults": { "color": { "mode": "thresholds" } }, "overrides": [] }
+    },
+    {
+      "id": 5,
+      "type": "stat",
+      "title": "Thumbs Up",
+      "gridPos": { "x": 0, "y": 4, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS \"Thumbs up\" FROM feedback WHERE feedback > 0",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "green" } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Thumbs Down",
+      "gridPos": { "x": 4, "y": 4, "w": 4, "h": 4 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT COUNT(*) AS \"Thumbs down\" FROM feedback WHERE feedback < 0",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "color": { "mode": "fixed", "fixedColor": "red" } },
+        "overrides": []
+      }
+    },
+    {
+      "id": 7,
+      "type": "piechart",
+      "title": "Feedback Ratio",
+      "gridPos": { "x": 8, "y": 4, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT CASE WHEN feedback > 0 THEN 'Thumbs up' ELSE 'Thumbs down' END AS metric, COUNT(*) AS value FROM feedback GROUP BY 1",
+          "format": "table"
+        }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Thumbs up" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "Thumbs down" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+        ]
+      }
+    },
+    {
+      "id": 8,
+      "type": "piechart",
+      "title": "Conversations by Retrieval Strategy",
+      "gridPos": { "x": 16, "y": 4, "w": 8, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT retrieval_strategy AS metric, COUNT(*) AS value FROM conversations GROUP BY 1",
+          "format": "table"
+        }
+      ],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" } }
+    },
+    {
+      "id": 9,
+      "type": "timeseries",
+      "title": "Conversations Over Time",
+      "gridPos": { "x": 0, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT $__timeGroup(timestamp, '1h') AS time, COUNT(*) AS \"conversations\" FROM conversations WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": { "defaults": { "custom": { "drawStyle": "bars" } }, "overrides": [] }
+    },
+    {
+      "id": 10,
+      "type": "timeseries",
+      "title": "Feedback Over Time",
+      "gridPos": { "x": 12, "y": 12, "w": 12, "h": 8 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT $__timeGroup(timestamp, '1h') AS time, COUNT(*) FILTER (WHERE feedback > 0) AS \"thumbs up\", COUNT(*) FILTER (WHERE feedback < 0) AS \"thumbs down\" FROM feedback WHERE $__timeFilter(timestamp) GROUP BY 1 ORDER BY 1",
+          "format": "time_series"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "drawStyle": "bars" } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "thumbs up" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "thumbs down" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] }
+        ]
+      }
+    },
+    {
+      "id": 11,
+      "type": "table",
+      "title": "Recent Conversations",
+      "gridPos": { "x": 0, "y": 20, "w": 24, "h": 9 },
+      "datasource": { "type": "postgres", "uid": "rag-postgres" },
+      "targets": [
+        {
+          "rawSql": "SELECT c.timestamp AS \"Time\", c.question AS \"Question\", LEFT(c.answer, 200) AS \"Answer\", c.model AS \"Model\", c.retrieval_strategy AS \"Strategy\", c.response_time AS \"Response Time (s)\", c.cost AS \"Cost\", f.feedback AS \"Feedback\" FROM conversations c LEFT JOIN feedback f ON f.conversation_id = c.id WHERE $__timeFilter(c.timestamp) ORDER BY c.timestamp DESC LIMIT 100",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Response Time (s)" }, "properties": [{ "id": "unit", "value": "s" }] },
+          { "matcher": { "id": "byName", "options": "Cost" }, "properties": [{ "id": "unit", "value": "currencyUSD" }] }
+        ]
+      }
+    }
+  ]
+}
