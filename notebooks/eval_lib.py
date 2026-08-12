@@ -17,15 +17,28 @@ method is the only thing that varies between strategies.
 
 import time
 from dataclasses import dataclass
+from itertools import combinations
 
+import numpy as np
 import pandas as pd
 from openai import RateLimitError
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_random_exponential
+from scipy import stats
+from tenacity import (
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 from arxiv_rag.config import settings
 from arxiv_rag.indexing import RagIndex
 from arxiv_rag.openai_client import get_client
-from arxiv_rag.rag import SYSTEM_PROMPT, USER_PROMPT_TEMPLATE, NO_RESULTS_ANSWER, build_context_block
+from arxiv_rag.rag import (
+    NO_RESULTS_ANSWER,
+    SYSTEM_PROMPT,
+    USER_PROMPT_TEMPLATE,
+    build_context_block,
+)
 from arxiv_rag.rerank import RankedResult
 from arxiv_rag.strategies import RETRIEVAL_STRATEGIES
 
@@ -70,10 +83,24 @@ class UsageStat:
 QUESTION_GEN_SYSTEM_PROMPT = (
     """
     You write a single, natural user question that is fully answerable using ONLY the
-    given paper's title, authors, and summary. The question should read like something
-    a researcher would type into a search/chat tool -- specific enough that this paper is
-    clearly the best answer, but do not quote the title verbatim. Return ONLY the question,
-    no preamble, no quotes.
+    given paper's title, authors, and summary.
+
+    The retrieval system indexes each paper as literally "Title: ... Authors: ...
+    Summary: ...", so a question that echoes that vocabulary is a trivial keyword
+    match, not a real test of retrieval quality. Your question must NOT contain any
+    of the paper's distinctive technical terms, method/model/dataset names, or
+    phrases lifted verbatim or near-verbatim from the title or summary -- and must
+    not quote the title.
+
+    Instead, describe the underlying problem, motivation, application, or finding in
+    your own words, the way someone who needs this research but doesn't yet know this
+    paper's specific terminology would phrase it -- e.g. ask about the practical
+    problem being solved, the type of result obtained, or the gap being addressed,
+    rather than naming the method itself. Before answering, silently check: if any
+    word in your draft question also appears in the title or summary as a distinctive
+    term (not common English), rephrase it.
+
+    Return ONLY the question, no preamble, no quotes.
     """
 )
 
@@ -156,11 +183,14 @@ def retrieval_rank(ranked: list[RankedResult], target_entry_id: str) -> int | No
 
 
 def hit_rate(ranks: list[int | None]) -> float:
-    return sum(1 for r in ranks if r is not None) / len(ranks)
+    # pd.notna (not `r is not None`): a rank column with any misses gets
+    # coerced by pandas from int64 to float64, turning None into NaN, and
+    # `NaN is not None` is True -- which would silently count misses as hits.
+    return sum(1 for r in ranks if pd.notna(r)) / len(ranks)
 
 
 def mean_reciprocal_rank(ranks: list[int | None]) -> float:
-    return sum((1 / r) if r is not None else 0.0 for r in ranks) / len(ranks)
+    return sum((1 / r) if pd.notna(r) else 0.0 for r in ranks) / len(ranks)
 
 
 # --- Per-question evaluation ----------------------------------------------------
@@ -211,6 +241,26 @@ def evaluate_one(index: RagIndex, entry_id: str, question: str, strategy_name: s
 # --- Aggregation & scoring ---------------------------------------------------
 
 
+def reciprocal_ranks(ranks: list) -> list[float]:
+    return [(1 / r) if pd.notna(r) else 0.0 for r in ranks]
+
+
+def bootstrap_ci(
+    values: list[float], n_boot: int = 2000, ci: float = 0.95, seed: int = 42
+) -> tuple[float, float, float]:
+    """Percentile bootstrap CI for the mean of `values`. Returns (mean, lo, hi)."""
+    arr = np.asarray(values, dtype=float)
+    point = float(arr.mean())
+    if len(arr) < 2:
+        return point, point, point
+    rng = np.random.default_rng(seed)
+    n = len(arr)
+    boot_means = arr[rng.integers(0, n, size=(n_boot, n))].mean(axis=1)
+    alpha = (1 - ci) / 2
+    lo, hi = np.quantile(boot_means, [alpha, 1 - alpha])
+    return point, float(lo), float(hi)
+
+
 def summarize(results: pd.DataFrame, top_k: int) -> pd.DataFrame:
     rows = []
     for strategy, group in results.groupby("strategy"):
@@ -229,6 +279,88 @@ def summarize(results: pd.DataFrame, top_k: int) -> pd.DataFrame:
                 "total_output_tokens": int(group["output_tokens"].sum()),
             }
         )
+    return pd.DataFrame(rows)
+
+
+def summarize_with_ci(
+    results: pd.DataFrame, top_k: int, n_boot: int = 2000, ci: float = 0.95, seed: int = 42
+) -> pd.DataFrame:
+    """Per-strategy mean +/- std and bootstrap CI for hit_rate, MRR, and relevancy.
+
+    Unlike summarize()'s single point estimate, this surfaces the resampling
+    uncertainty in each metric -- needed to tell a real quality gap between
+    strategies apart from run-to-run noise (see compute_composite_score's
+    min-max normalization, which was getting fooled by exactly that noise).
+    """
+    rows = []
+    for strategy, group in results.groupby("strategy"):
+        ranks = group["rank"].tolist()
+        rr = reciprocal_ranks(ranks)
+        hits = [1.0 if pd.notna(r) else 0.0 for r in ranks]
+        relevancy = group["relevancy"].tolist()
+
+        hit_mean, hit_lo, hit_hi = bootstrap_ci(hits, n_boot, ci, seed)
+        mrr_mean, mrr_lo, mrr_hi = bootstrap_ci(rr, n_boot, ci, seed)
+        rel_mean, rel_lo, rel_hi = bootstrap_ci(relevancy, n_boot, ci, seed)
+
+        rows.append(
+            {
+                "strategy": strategy,
+                "n": len(group),
+                f"hit_rate@{top_k}_mean": hit_mean,
+                f"hit_rate@{top_k}_std": float(np.std(hits, ddof=1)) if len(hits) > 1 else 0.0,
+                f"hit_rate@{top_k}_ci95_lo": hit_lo,
+                f"hit_rate@{top_k}_ci95_hi": hit_hi,
+                f"mrr@{top_k}_mean": mrr_mean,
+                f"mrr@{top_k}_std": float(np.std(rr, ddof=1)) if len(rr) > 1 else 0.0,
+                f"mrr@{top_k}_ci95_lo": mrr_lo,
+                f"mrr@{top_k}_ci95_hi": mrr_hi,
+                "avg_relevancy_mean": rel_mean,
+                "avg_relevancy_std": float(np.std(relevancy, ddof=1)) if len(relevancy) > 1 else 0.0,
+                "avg_relevancy_ci95_lo": rel_lo,
+                "avg_relevancy_ci95_hi": rel_hi,
+            }
+        )
+    return pd.DataFrame(rows)
+
+
+def paired_significance(results: pd.DataFrame) -> pd.DataFrame:
+    """Paired Wilcoxon signed-rank test between every pair of strategies.
+
+    Valid because all strategies are evaluated on the exact same 200
+    questions (results is long-format, one row per entry_id x strategy) --
+    a paired test has far more power than comparing independent point
+    estimates, which is what let single-run noise flip the composite-score
+    winner in prior runs.
+    """
+    df = results.copy()
+    df["reciprocal_rank"] = reciprocal_ranks(df["rank"].tolist())
+    rr_pivot = df.pivot(index="entry_id", columns="strategy", values="reciprocal_rank")
+    rel_pivot = df.pivot(index="entry_id", columns="strategy", values="relevancy")
+
+    rows = []
+    strategies = sorted(rr_pivot.columns)
+    for a, b in combinations(strategies, 2):
+        for metric_name, pivot in (("mrr", rr_pivot), ("relevancy", rel_pivot)):
+            paired = pivot[[a, b]].dropna()
+            diffs = paired[a] - paired[b]
+            nonzero = diffs[diffs != 0]
+            if len(nonzero) == 0:
+                statistic, p_value = float("nan"), 1.0
+            else:
+                statistic, p_value = stats.wilcoxon(paired.loc[nonzero.index, a], paired.loc[nonzero.index, b])
+            rows.append(
+                {
+                    "strategy_a": a,
+                    "strategy_b": b,
+                    "metric": metric_name,
+                    "n_pairs": len(paired),
+                    "mean_diff": float(diffs.mean()),
+                    "statistic": statistic,
+                    "p_value": p_value,
+                    "significant_p<0.05": bool(p_value < 0.05),
+                }
+            )
     return pd.DataFrame(rows)
 
 

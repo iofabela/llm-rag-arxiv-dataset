@@ -1,10 +1,14 @@
 import marimo
 
 __generated_with = "0.23.16"
-app = marimo.App(width="medium")
+app = marimo.App(
+    width="full",
+    app_title="RetrievalStrategy",
+    auto_download=["ipynb"],
+)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import os
 
@@ -73,7 +77,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     SAMPLE_SIZE = 200
     TOP_K = 5
@@ -87,14 +91,14 @@ def _():
     return MAX_WORKERS, RANDOM_SEED, SAMPLE_SIZE, TOP_K
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(get_index, mo):
     index = get_index()
     mo.md(f"Loaded **{len(index.df):,}** papers, embeddings shape `{index.embeddings.shape}`.")
     return (index,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(get_client, get_cross_encoder, get_es_client, mo):
     # Warm up the lazily-constructed singletons (OpenAI client, cross-encoder
     # model, ES client) here in the main thread, before any ThreadPoolExecutor
@@ -116,7 +120,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(index, index_exists, index_to_elasticsearch, mo):
     try:
         if not index_exists():
@@ -132,7 +136,7 @@ def _(index, index_exists, index_to_elasticsearch, mo):
     return (es_available,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(es_available, ev, mo):
     strategy_names = [name for name in ev.RETRIEVAL_STRATEGIES if name != "elasticsearch_rrf" or es_available]
     mo.md(f"Evaluating strategies: **{', '.join(strategy_names)}**")
@@ -147,14 +151,14 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(RANDOM_SEED, SAMPLE_SIZE, index, mo):
     sample_df = index.df.sample(n=SAMPLE_SIZE, random_state=RANDOM_SEED).reset_index(drop=True)
     mo.md(f"Sampled **{len(sample_df)}** papers (seed={RANDOM_SEED}) as the evaluation set.")
     return (sample_df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(MAX_WORKERS, ThreadPoolExecutor, as_completed, ev, mo, sample_df):
     questions_by_id = {}
     question_gen_cost = 0.0
@@ -185,7 +189,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(
     MAX_WORKERS,
     TOP_K,
@@ -242,7 +246,7 @@ def _(TOP_K, ev, mo, results_df):
     return (summary_df,)
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(np, plt):
     STRATEGY_COLORS = {
         "hybrid_rerank": "#2a78d6",
@@ -301,7 +305,7 @@ def _(np, plt):
     return (make_comparison_figure,)
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(TOP_K, make_comparison_figure, mo, summary_df):
     fig_retrieval = make_comparison_figure(
         summary_df,
@@ -321,7 +325,11 @@ def _(make_comparison_figure, mo, summary_df):
         summary_df,
         [
             ("avg_cost_usd", "Avg Cost / Query (USD)", "${:.5f}"),
-            ("total_cost_usd", f"Total Cost, {len(summary_df)} strategies (USD)", "${:.4f}"),
+            (
+                "total_cost_usd",
+                f"Total Cost, {len(summary_df)} strategies (USD)",
+                "${:.4f}",
+            ),
         ],
     )
     fig_cost.savefig("artifacts/eval_cost.png", dpi=150)
@@ -329,7 +337,7 @@ def _(make_comparison_figure, mo, summary_df):
     return
 
 
-@app.cell(hide_code=True)
+@app.cell
 def _(make_comparison_figure, mo, summary_df):
     fig_latency = make_comparison_figure(
         summary_df,
@@ -358,6 +366,47 @@ def _(make_comparison_figure, mo, summary_df):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md("""
+    ## Statistical reliability
+
+    Single point estimates (the table above) can't tell a real quality gap
+    between strategies apart from run-to-run noise in synthetic question
+    generation and single-shot LLM-judge scoring. Here we report bootstrap
+    95% confidence intervals per strategy, and a paired Wilcoxon signed-rank
+    test between every pair of strategies -- valid because all strategies are
+    evaluated on the exact same questions, which gives the test much more
+    power than comparing independent point estimates.
+    """)
+    return
+
+
+@app.cell(hide_code=True)
+def _(TOP_K, ev, mo, results_df):
+    ci_df = ev.summarize_with_ci(results_df, TOP_K)
+    mo.vstack([mo.md("### Mean ± std, with bootstrap 95% CI"), mo.ui.table(ci_df)])
+    return
+
+
+@app.cell(hide_code=True)
+def _(ev, mo, results_df):
+    sig_df = ev.paired_significance(results_df)
+    n_significant = int(sig_df["significant_p<0.05"].sum())
+    sig_note = (
+        "No pairwise comparison reached p < 0.05 -- treat the ranking below as noise, not a real quality difference."
+        if n_significant == 0
+        else f"{n_significant} of {len(sig_df)} pairwise comparisons reached p < 0.05."
+    )
+    mo.vstack(
+        [
+            mo.md(f"### Paired significance (Wilcoxon signed-rank)\n\n{sig_note}"),
+            mo.ui.table(sig_df),
+        ]
+    )
+    return (sig_df,)
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md("""
     ## Composite score
 
     Combines all four dimensions into one score per strategy (each metric is
@@ -368,7 +417,7 @@ def _(mo):
     return
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo):
     DEFAULT_WEIGHTS = {
         "retrieval": 0.30,
@@ -380,7 +429,7 @@ def _(mo):
     return DEFAULT_WEIGHTS, get_weights, set_weights
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(DEFAULT_WEIGHTS, mo, set_weights):
     reset_button = mo.ui.button(
         label="Reset to defaults",
@@ -413,7 +462,6 @@ def _(get_weights, mo, reset_button, set_weights):
     )
 
     mo.vstack([weight_retrieval, weight_relevancy, weight_speed, weight_cost, reset_button])
-
     return weight_cost, weight_relevancy, weight_retrieval, weight_speed
 
 
@@ -439,7 +487,15 @@ def _(
     winner = score_df.iloc[0]["strategy"]
     mo.vstack(
         [
-            mo.md(f"**Winner: `{winner}`** (score {score_df.iloc[0]['score']:.3f})"),
+            mo.md(
+                f"**Composite-score leader under current weights: `{winner}`** "
+                f"(score {score_df.iloc[0]['score']:.3f})\n\n"
+                "This is a weighted-average ranking, not a statistically validated "
+                "conclusion -- min-max normalization means even a small, non-significant "
+                "gap on one axis can swing that axis's full weight. See "
+                "*Statistically validated result* below for what the paired "
+                "significance test actually supports."
+            ),
             mo.ui.table(score_df[["strategy", "score"]]),
         ]
     )
@@ -455,16 +511,74 @@ def _(make_comparison_figure, mo, score_df, winner):
 
 
 @app.cell(hide_code=True)
-def _(mo, winner):
+def _(mo, sig_df, winner):
+    significant_rows = sig_df[sig_df["significant_p<0.05"]]
+    backing_notes = []
+    winner_backed_by = []
+    for _, row in significant_rows.iterrows():
+        better, worse = (
+            (row["strategy_a"], row["strategy_b"])
+            if row["mean_diff"] > 0
+            else (row["strategy_b"], row["strategy_a"])
+        )
+        backing_notes.append(f"`{better}` beats `{worse}` on **{row['metric']}** (p={row['p_value']:.3f})")
+        if better == winner:
+            winner_backed_by.append(row["metric"])
+
+    if not backing_notes:
+        significance_summary = (
+            "No pairwise comparison reached p < 0.05 on any metric -- none of the "
+            "strategies has a statistically validated advantage. Treat all three as "
+            "tied on quality and relevancy."
+        )
+    else:
+        bullet_list = "\n".join(f"- {note}" for note in backing_notes)
+        significance_summary = f"Statistically significant differences found:\n\n{bullet_list}"
+        if winner_backed_by:
+            significance_summary += (
+                f"\n\nThe composite-score leader (`{winner}`) is backed by significant "
+                f"wins on: {', '.join(winner_backed_by)}."
+            )
+        else:
+            significance_summary += (
+                f"\n\n**Note:** the composite-score leader (`{winner}`) is NOT among the "
+                "strategies with a significant win above -- its lead is driven by "
+                "non-significant differences that min-max normalization amplified."
+            )
+
+    mo.md(f"### Statistically validated result\n\n{significance_summary}")
+    return (winner_backed_by,)
+
+
+@app.cell(hide_code=True)
+def _(mo, winner, winner_backed_by):
+    if winner_backed_by:
+        recommendation = (
+            f"**`{winner}`** is both the composite-score leader under the current weights "
+            f"and has a statistically significant advantage on {', '.join(winner_backed_by)} -- "
+            "the two signals agree, so this is a reasonably confident pick."
+        )
+    else:
+        recommendation = (
+            f"The composite score currently favors **`{winner}`**, but that ranking is "
+            "*not* backed by statistical significance (see above) -- it can flip between "
+            "runs as synthetic-question and LLM-judge noise shifts the non-significant "
+            "dimensions. Don't treat it as a settled conclusion; re-run the evaluation "
+            "and check whether the same strategy keeps winning both the composite score "
+            "and the significance test before committing to it in production."
+        )
+
     mo.md(f"""
     ## Conclusion
 
-    Based on this evaluation, **`{winner}`** is the recommended retrieval strategy
-    under the current weights. Adjust the sliders above to see how the ranking
-    shifts under different priorities (e.g. cost-sensitive vs quality-sensitive
-    deployments).
+    {recommendation}
 
-    To make the production app use it, set in `.env`:
+    Adjust the sliders above to see how the composite-score ranking shifts under
+    different priorities (e.g. cost-sensitive vs quality-sensitive deployments) --
+    but the *statistically validated result* section above does not change with
+    the sliders, since it doesn't depend on the weights.
+
+    To make the production app use the composite-score leader, set in `.env`:
 
     ```
     RETRIEVAL_STRATEGY={winner}

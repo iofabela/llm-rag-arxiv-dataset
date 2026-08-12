@@ -26,7 +26,7 @@ class Settings(BaseModel):
 
     cross_encoder_model: str = os.getenv("CROSS_ENCODER_MODEL", "cross-encoder/ms-marco-MiniLM-L-6-v2")
 
-    hybrid_candidate_k: int = int(os.getenv("HYBRID_CANDIDATE_K", "50"))
+    hybrid_candidate_k: int = int(os.getenv("HYBRID_CANDIDATE_K", "100"))
     rerank_top_k: int = int(os.getenv("RERANK_TOP_K", "5"))
     rrf_k: int = int(os.getenv("RRF_K", "60"))
 
@@ -35,10 +35,9 @@ class Settings(BaseModel):
     es_index_name: str = os.getenv("ES_INDEX_NAME", "arxiv_papers")
 
     # One of: hybrid_rerank, hybrid_only, elasticsearch_rrf (see strategies.py).
-    # notebooks/retrieval_evaluation.py
-    # -- requires Elasticsearch running (docker compose up -d).
-    retrieval_strategy: str = os.getenv("RETRIEVAL_STRATEGY", "hybrid_only")
-    print(f"| RETRIEVAL_STRATEGY | :: {retrieval_strategy}")
+    # hybrid_rerank is the recommended default (see notebooks/retrieval_evaluation.py).
+    # elasticsearch_rrf requires Elasticsearch running (docker compose up -d).
+    retrieval_strategy: str = os.getenv("RETRIEVAL_STRATEGY", "hybrid_rerank")
 
     embedding_batch_size: int = int(os.getenv("EMBEDDING_BATCH_SIZE", "200"))
 
