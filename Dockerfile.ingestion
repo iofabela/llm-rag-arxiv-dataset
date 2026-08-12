@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app/src
+
+WORKDIR /app
+
+RUN pip install --no-cache-dir \
+    "dlt[duckdb]>=1.29.1,<2" \
+    "fastapi>=0.141.1" \
+    "kagglehub[pandas-datasets]>=1.0.2" \
+    "pandas>=3.0.5" \
+    "python-dotenv>=1.2.2" \
+    "uvicorn[standard]>=0.52.1"
+
+COPY src ./src
+COPY ingestion ./ingestion
+
+RUN mkdir -p /app/data /app/.dlt/pipelines
+
+EXPOSE 8090
+
+CMD ["uvicorn", "ingestion.service:app", "--host", "0.0.0.0", "--port", "8090"]

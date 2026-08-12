@@ -1,0 +1,36 @@
+id: arxiv_ingestion
+namespace: arxiv.rag
+
+description: Refresh the arXiv dataset with dlt and store it in DuckDB.
+
+concurrency:
+  behavior: QUEUE
+  limit: 1
+
+inputs:
+  - id: force_download
+    type: BOOLEAN
+    defaults: false
+    description: Download the latest Kaggle snapshot instead of using the local CSV cache.
+
+tasks:
+  - id: run_dlt
+    type: io.kestra.plugin.core.http.Request
+    uri: http://dlt-ingestion:8090/run
+    method: POST
+    contentType: application/json
+    body: |
+      {"force_download": {{ inputs.force_download }}}
+    timeout: PT30M
+    options:
+      connectTimeout: PT10S
+      readTimeout: PT30M
+
+triggers:
+  - id: daily
+    type: io.kestra.plugin.core.trigger.Schedule
+    cron: "@daily"
+    timezone: UTC
+    allowConcurrent: false
+    inputs:
+      force_download: true
