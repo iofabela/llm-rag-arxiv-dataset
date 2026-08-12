@@ -13,3 +13,6 @@ artifacts/
 
 # OS
 .DS_Store
+
+# Any LLM settings
+.claude

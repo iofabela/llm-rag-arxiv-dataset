@@ -37,7 +37,7 @@ Kestra (daily schedule) ──▶ dlt ingestion service ──▶ DuckDB ──�
 
 Step by step:
 
-1. **Retrieve** — the question is matched against every paper's `title + authors + summary` using the configured strategy. The recommended strategy is `elasticsearch_rrf`: Elasticsearch's native RRF retriever, fusing BM25 (lexical) and kNN over dense `text-embedding-3-small` embeddings, server-side. Two alternates are fully implemented in [src/arxiv_rag/strategies.py](src/arxiv_rag/strategies.py) and selectable via `RETRIEVAL_STRATEGY` in `.env`: `hybrid_rerank` (NumPy dense + BM25 hybrid search, then a local cross-encoder rerank) and `hybrid_only` (same hybrid search, no rerank).
+1. **Retrieve** — the question is matched against every paper's `title + authors + summary` using the configured strategy. The recommended strategy is `hybrid_rerank`: NumPy RRF fusion of BM25 (lexical) and dense `text-embedding-3-small` embeddings, then a local cross-encoder rerank of the candidate pool (see [Retrieval evaluation](#retrieval-evaluation)). Two alternates are fully implemented in [src/arxiv_rag/strategies.py](src/arxiv_rag/strategies.py) and selectable via `RETRIEVAL_STRATEGY` in `.env`: `hybrid_only` (same hybrid search, no rerank) and `elasticsearch_rrf` (Elasticsearch's native RRF retriever, fusing BM25 and kNN server-side; requires Elasticsearch running).
 2. **Generate** — the top-k papers are formatted into a numbered context block (title, authors, date, summary) and passed to `gpt-4o-mini`, which answers grounded strictly in that context and cites papers as `[1]`, `[2]`, … (see the system prompt in [src/arxiv_rag/rag.py](src/arxiv_rag/rag.py)).
 3. **Log** — every `/chat` call is written to Postgres: question, answer, model, retrieval strategy, prompt/completion tokens, USD cost, response time.
 4. **Feedback** — each answer in the UI has 👍/👎 buttons that `POST /feedback` with the conversation id and a `+1`/`-1` score.
@@ -75,7 +75,7 @@ The three retrieval strategies compared on a 200-paper sample (retrieval quality
 |---|---|---|
 | **Problem description** | Problem, data, and end-to-end flow described above with no assumed context | [Problem description](#problem-description), [Data](#data), [How it works](#how-it-works-rag-flow) |
 | **Retrieval flow** | Knowledge base (10k papers indexed in Elasticsearch + in-memory NumPy/BM25) and an LLM used together in a RAG flow | [src/arxiv_rag/rag.py](src/arxiv_rag/rag.py), [src/arxiv_rag/strategies.py](src/arxiv_rag/strategies.py) |
-| **Retrieval evaluation** | Three retrieval approaches evaluated (hit rate / MRR, LLM-as-a-judge relevancy, cost, latency, composite score); the winner, `elasticsearch_rrf`, is the recommended strategy | [notebooks/retrieval_evaluation.py](notebooks/retrieval_evaluation.py), [docs/retrieval_evaluation.pdf](docs/retrieval_evaluation.pdf), [Retrieval evaluation](#retrieval-evaluation) |
+| **Retrieval evaluation** | Three retrieval approaches evaluated (hit rate / MRR, LLM-as-a-judge relevancy, cost, latency, composite score); the winner, `hybrid_rerank`, is the recommended strategy | [notebooks/retrieval_evaluation.py](notebooks/retrieval_evaluation.py), [docs/retrieval_evaluation.pdf](docs/retrieval_evaluation.pdf), [Retrieval evaluation](#retrieval-evaluation) |
 | **Interface** | Streamlit chat UI (sources, 👍/👎 feedback) on top of a FastAPI backend | [app_streamlit.py](app_streamlit.py), [src/arxiv_rag/api.py](src/arxiv_rag/api.py) |
 | **Ingestion pipeline** | Fully automated: Kestra triggers the dlt ingestion service daily (`@daily` UTC, fresh Kaggle download, concurrency-limited) | [flows/arxiv_ingestion.yml](flows/arxiv_ingestion.yml), [ingestion/](ingestion/README.md) |
 | **Monitoring** | User feedback collected in Postgres; Grafana dashboard with 11 panels (volume, cost, latency, tokens, thumbs up/down, ratio, strategy breakdown, timelines, recent conversations) | [Monitoring & feedback](#monitoring--feedback), [grafana/provisioning/](grafana/provisioning) |
@@ -108,7 +108,9 @@ Python 3.11 · uv · FastAPI · Streamlit · OpenAI API (`gpt-4o-mini`, `text-em
    | `OPENAI_API_KEY` | — | **Required.** Used for both embeddings and chat completions |
    | `OPENAI_CHAT_MODEL` | `gpt-4o-mini` | Model that generates answers |
    | `OPENAI_EMBEDDING_MODEL` | `text-embedding-3-small` | Model used to embed papers |
-   | `RETRIEVAL_STRATEGY` | `hybrid_only` | `hybrid_only`, `hybrid_rerank`, or `elasticsearch_rrf` (recommended; needs Elasticsearch) |
+   | `RETRIEVAL_STRATEGY` | `hybrid_rerank` | `hybrid_rerank` (recommended), `hybrid_only`, or `elasticsearch_rrf` (needs Elasticsearch) |
+   | `HYBRID_CANDIDATE_K` | `100` | Candidate pool size for the hybrid search behind `hybrid_rerank` / `hybrid_only`; a larger pool gives the cross-encoder more candidates to pull from |
+   | `RERANK_TOP_K` | `5` | Number of candidates kept after the cross-encoder rerank |
    | `ES_URL` | `http://localhost:9200` | Elasticsearch endpoint |
    | `KAGGLE_USERNAME` / `KAGGLE_KEY` | — | Only for fresh Kaggle downloads |
    | `POSTGRES_HOST/PORT/DB/USER/PASSWORD` | `localhost:5432`, db/user/pass `arxiv_rag` | Conversation + feedback store |
@@ -163,7 +165,7 @@ Every question is logged to Postgres as soon as the API answers it; the API crea
 uv run marimo edit notebooks/retrieval_evaluation.py
 ```
 
-Compares `hybrid_rerank`, `hybrid_only`, and `elasticsearch_rrf` on a 200-paper sample: retrieval quality (hit rate / MRR), answer relevancy (LLM-as-a-judge), token cost, and latency, combined into an adjustable composite score. A written report of the results is in [docs/retrieval_evaluation.pdf](docs/retrieval_evaluation.pdf); see [notebooks/README.md](notebooks/README.md) for full notebook instructions. The evaluation found `elasticsearch_rrf` the best overall — set `RETRIEVAL_STRATEGY=elasticsearch_rrf` in `.env` to use it (requires Elasticsearch running), no code changes needed.
+Compares `hybrid_rerank`, `hybrid_only`, and `elasticsearch_rrf` on a 200-paper sample: retrieval quality (hit rate / MRR), answer relevancy (LLM-as-a-judge), token cost, and latency, combined into an adjustable composite score. A written report of the results is in [docs/retrieval_evaluation.pdf](docs/retrieval_evaluation.pdf); see [notebooks/README.md](notebooks/README.md) for full notebook instructions. The evaluation found `hybrid_rerank` the best overall — best hit rate / MRR / answer relevancy, and its edge over `hybrid_only` is statistically significant (paired Wilcoxon signed-rank, p < 0.05). Set `RETRIEVAL_STRATEGY=hybrid_rerank` in `.env` to use it (the default), no code changes needed.
 
 ## Monitoring & feedback
 
