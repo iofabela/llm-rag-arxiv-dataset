@@ -16,3 +16,6 @@ artifacts/
 
 # Any LLM settings
 .claude
+.agents
+.opencode
+skills*

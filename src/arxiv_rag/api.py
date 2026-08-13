@@ -6,6 +6,7 @@ from typing import Literal
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
+from scalar_fastapi import get_scalar_api_reference
 
 from . import db
 from .config import settings
@@ -28,7 +29,18 @@ async def lifespan(app: FastAPI):
     yield
 
 
-app = FastAPI(title="arxiv-rag-api", lifespan=lifespan)
+app = FastAPI(
+    title="arxiv-rag-api",
+    description=(
+        "Backend API for the ArXiv AI Papers RAG Chat project.\n\n"
+        "Ask natural-language questions about ArXiv AI papers and get answers "
+        "grounded in retrieved passages, using a hybrid search + reranking "
+        "retrieval pipeline in front of an LLM. Conversations and user feedback "
+        "are logged to Postgres for evaluation and monitoring (see the Grafana "
+        "dashboard)."
+    ),
+    lifespan=lifespan,
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -36,6 +48,14 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.get("/scalar", include_in_schema=False)
+def scalar_docs():
+    return get_scalar_api_reference(
+        openapi_url=app.openapi_url,
+        title=app.title,
+    )
 
 
 class ChatRequest(BaseModel):
@@ -53,8 +73,10 @@ class FeedbackRequest(BaseModel):
     feedback: Literal[-1, 1]
 
 
-@app.get("/health")
+@app.get("/health", summary="Health check")
 def health() -> dict:
+    """Report service liveness plus whether OpenAI is configured and the
+    retrieval index has been warmed up in memory."""
     return {
         "status": "ok",
         "openai_configured": bool(settings.openai_api_key),
@@ -62,8 +84,15 @@ def health() -> dict:
     }
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=ChatResponse, summary="Ask a question")
 def chat(request: ChatRequest) -> ChatResponse:
+    """Answer a question about ArXiv AI papers.
+
+    Retrieves relevant passages via the configured retrieval strategy,
+    reranks them, and generates an answer with an LLM. The response includes
+    usage/cost metadata and a `conversation_id` that can be used to submit
+    feedback via `POST /feedback` (null if Postgres logging is unavailable).
+    """
     try:
         result = answer_question(request.question, top_k=request.top_k)
     except RuntimeError as exc:
@@ -90,8 +119,10 @@ def chat(request: ChatRequest) -> ChatResponse:
     return ChatResponse(**result.model_dump(), conversation_id=conversation_id)
 
 
-@app.post("/feedback")
+@app.post("/feedback", summary="Rate an answer")
 def feedback(request: FeedbackRequest) -> dict:
+    """Record a thumbs up (`1`) or thumbs down (`-1`) for a previous chat
+    answer, identified by the `conversation_id` returned from `POST /chat`."""
     try:
         db.save_feedback(request.conversation_id, request.feedback)
     except Exception as exc:  # noqa: BLE001
