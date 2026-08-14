@@ -12,7 +12,7 @@ services:
       - es_data:/usr/share/elasticsearch/data
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:17
     container_name: arxiv-rag-kestra-postgres
     environment:
       POSTGRES_DB: kestra
@@ -27,7 +27,7 @@ services:
       retries: 10
 
   rag-postgres:
-    image: postgres:16-alpine
+    image: postgres:17
     container_name: arxiv-rag-postgres
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-arxiv_rag}

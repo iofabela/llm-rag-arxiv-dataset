@@ -2,9 +2,9 @@
 
 `retrieval_evaluation.py` is a [marimo](https://marimo.io) notebook comparing
 the three retrieval strategies (`hybrid_rerank`, `hybrid_only`,
-`elasticsearch_rrf`) on a sample of the arXiv dataset — retrieval quality
-(hit rate / MRR), LLM-judged relevancy, cost, and latency — plus a composite
-score and statistical tests. `eval_lib.py` is its supporting code (question
+`elasticsearch_rrf`) on a sample of the arXiv dataset. It measures retrieval
+quality (hit rate / MRR), LLM-judged relevancy, cost, and latency, plus a
+composite score and statistical tests. `eval_lib.py` is its supporting code (question
 generation, judging, metrics) and is only imported by this notebook, never by
 the production app.
 

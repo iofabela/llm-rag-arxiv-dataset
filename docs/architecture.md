@@ -1,4 +1,4 @@
-# How it works — architecture
+# How it works: architecture
 
 This page details the deep flow behind the chat app. For the three-minute
 summary (problem, data, flow overview) see the [root README](../README.md).
@@ -11,16 +11,16 @@ summary (problem, data, flow overview) see the [root README](../README.md).
 
 ## Components
 
-1. **Streamlit UI** (`app_streamlit.py`) — chat input, renders the answer with
+1. **Streamlit UI** (`app_streamlit.py`). It renders the chat input and the answer with
    an expandable list of cited sources, and 👍/👎 buttons per reply that call
    `POST /feedback`. It talks to the API through plain HTTP (`requests`),
    using `BACKEND_URL` from `.env` (default `http://localhost:8000`).
 
-2. **FastAPI backend** (`src/arxiv_rag/api.py`) — exposes `GET /health`,
+2. **FastAPI backend** (`src/arxiv_rag/api.py`). It exposes `GET /health`,
    `POST /chat`, `POST /feedback`, and an interactive Scalar client at
    `GET /scalar`. Full walkthrough in [api_scalar.md](api_scalar.md).
 
-3. **RAG orchestration** (`src/arxiv_rag/rag.py`) — `answer_question()`
+3. **RAG orchestration** (`src/arxiv_rag/rag.py`). `answer_question()`
    orchestrates the whole request:
    - picks the retrieval strategy from `settings.retrieval_strategy`,
    - retrieves the top papers via that strategy,
@@ -28,21 +28,21 @@ summary (problem, data, flow overview) see the [root README](../README.md).
    - sends `context + question` to the chat model,
    - returns the answer, cited sources, token usage, latency, and cost.
 
-4. **Retrieval strategies** (`src/arxiv_rag/strategies.py`) — three pluggable
+4. **Retrieval strategies** (`src/arxiv_rag/strategies.py`). Three pluggable
    strategies behind a single `(index, query, top_k) -> list[RankedResult]`
    interface, selected via `RETRIEVAL_STRATEGY`:
 
    | Strategy | Pipeline |
    |---|---|
    | `hybrid_rerank` (default, recommended) | NumPy/BM25 hybrid search + RRF, then a local cross-encoder rerank of the candidate pool |
-   | `hybrid_only` | Same hybrid search + RRF, truncated to `top_k` — no rerank |
-   | `elasticsearch_rrf` | Elasticsearch's native RRF retriever (BM25 + kNN), server side — requires Elasticsearch |
+   | `hybrid_only` | Same hybrid search + RRF, truncated to `top_k`, so no rerank |
+   | `elasticsearch_rrf` | Elasticsearch's native RRF retriever (BM25 + kNN), server side, and requires Elasticsearch |
 
    - `hybrid_search` (`src/arxiv_rag/search.py`) fuses a dense ranking (dot
      product of the query embedding against the cached `embeddings.npy`) with
      a BM25 ranking, using Reciprocal Rank Fusion (`1 / (k + rank)`).
    - The reranker (`src/arxiv_rag/rerank.py`) is a local
-     `cross-encoder/ms-marco-MiniLM-L-6-v2` — no extra API key or network call.
+     `cross-encoder/ms-marco-MiniLM-L-6-v2`, so no extra API key or network call.
 
    Tuning knobs from `.env`:
 
@@ -54,19 +54,19 @@ summary (problem, data, flow overview) see the [root README](../README.md).
    | `RRF_K` | `60` | RRF constant |
    | `ES_URL` / `ES_API_KEY` | `http://localhost:9200` / empty | Elasticsearch endpoint (only for `elasticsearch_rrf`) |
 
-5. **Generation & grounding** — the chat completion is grounded:
+5. **Generation & grounding**. The chat completion is grounded:
    the system prompt (`rag.SYSTEM_PROMPT`) forbids outside knowledge and
    invented facts and requires inline citations `[1]`, `[2]`, …; the user
    prompt is `Retrieved papers:\n\n{context}\n\nQuestion: {question}`. If no
    papers are retrieved, the API returns `NO_RESULTS_ANSWER` rather than
    fabricating an answer.
 
-6. **Cost & token tracking** — `rag.MODEL_PRICING` maps each model to USD per
+6. **Cost & token tracking**. `rag.MODEL_PRICING` maps each model to USD per
    1M tokens (input, output). Every `RagAnswer` carries `prompt_tokens`,
    `completion_tokens`, `total_tokens`, `response_time`, and `cost`, which the
    API logs to Postgres (see [monitoring_feedback.md](monitoring_feedback.md)).
 
-7. **Indexing & data** — papers come from a Kaggle snapshot, loaded by dlt
+7. **Indexing & data**. Papers come from a Kaggle snapshot, loaded by dlt
    into DuckDB (`data/arxiv_papers.duckdb`) and then into an in-memory
    `RagIndex` (`src/arxiv_rag/indexing.py`): Pandas dataframe + cached OpenAI
    embeddings (`artifacts/embeddings.npy`) + BM25. Build/refresh with
@@ -84,7 +84,7 @@ summary (problem, data, flow overview) see the [root README](../README.md).
 
 ## See also
 
-- [api_scalar.md](api_scalar.md) — every HTTP endpoint, request/response examples
-- [retrieval_evaluation.md](retrieval_evaluation.md) — how the strategies are compared
-- [monitoring_feedback.md](monitoring_feedback.md) — feedback + Grafana
-- [ingestion_pipeline.md](ingestion_pipeline.md) — dlt + Kestra
+- [api_scalar.md](api_scalar.md): every HTTP endpoint and request/response examples
+- [retrieval_evaluation.md](retrieval_evaluation.md): how the strategies are compared
+- [monitoring_feedback.md](monitoring_feedback.md): feedback + Grafana
+- [ingestion_pipeline.md](ingestion_pipeline.md): dlt + Kestra
