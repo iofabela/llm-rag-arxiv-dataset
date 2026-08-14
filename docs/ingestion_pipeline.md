@@ -33,7 +33,7 @@ consistent refresh instead of appending duplicate papers.
 
 | Endpoint | Body | Behavior |
 |---|---|---|
-| `GET /health` | — | Liveness probe |
+| `GET /health` | none | Liveness probe |
 | `POST /run` | `{"force_download": bool}` | Runs the pipeline; `409` if an ingestion is already running, `500` on failure |
 
 ## Configuration
@@ -110,12 +110,12 @@ uv run python -c "from arxiv_rag.indexing import get_index; from arxiv_rag.es_se
 
 ## Screenshots
 
-<!-- TODO(screenshot): add docs/screenshots/kestra_flow.png — a successful arxiv_ingestion flow run in Kestra -->
+<!-- TODO(screenshot): add docs/screenshots/kestra_flow.png; a successful arxiv_ingestion flow run in Kestra -->
 
 ## See also
 
-- [`ingestion/dlt_pipeline.py`](../ingestion/dlt_pipeline.py) — the dlt resource and cleaning logic
-- [`ingestion/service.py`](../ingestion/service.py) — the HTTP wrapper
-- [`flows/arxiv_ingestion.yml`](../flows/arxiv_ingestion.yml) — the Kestra flow
-- [`ingestion/README.md`](../ingestion/README.md) — short pointer
-- [`Makefile`](../Makefile) — `make ingestion`
+- [`ingestion/dlt_pipeline.py`](../ingestion/dlt_pipeline.py): the dlt resource and cleaning logic
+- [`ingestion/service.py`](../ingestion/service.py): the HTTP wrapper
+- [`flows/arxiv_ingestion.yml`](../flows/arxiv_ingestion.yml): the Kestra flow
+- [`ingestion/README.md`](../ingestion/README.md): short pointer
+- [`Makefile`](../Makefile): `make ingestion`

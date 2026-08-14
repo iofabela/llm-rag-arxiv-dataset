@@ -1,4 +1,4 @@
-# Documentation — ArXiv AI Papers RAG Chat
+# Documentation: ArXiv AI Papers RAG Chat
 
 Supplementary pages to the [root README](../README.md). The README gives the
 big picture (problem, data, summarized flow, quick install); these pages go

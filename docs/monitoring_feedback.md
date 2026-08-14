@@ -13,7 +13,7 @@ to combine with the [retrieval evaluation](retrieval_evaluation.md).
 3. The API inserts a row into the `feedback` table
    (`src/arxiv_rag/db.py` → `save_feedback`).
 
-If Postgres is unreachable, chat keeps working — logging and feedback are
+If Postgres is unreachable, chat keeps working; logging and feedback are
 just silently disabled (`conversation_id` is `null` in the `/chat` response).
 
 ## Database schema
@@ -31,7 +31,7 @@ feedback      (id, conversation_id → conversations.id, feedback ±1, timestamp
 
 The `grafana` service auto-provisions a Postgres datasource and the
 **"Arxiv RAG - Conversations & Feedback"** dashboard from
-[`grafana/provisioning/`](../grafana/provisioning) — no manual setup needed.
+[`grafana/provisioning/`](../grafana/provisioning). No manual setup is needed.
 Default login `admin`/`admin`.
 
 Its **11 panels** (titles from
@@ -66,11 +66,18 @@ export the JSON back).
 
 ## Screenshots
 
-<!-- TODO(screenshot): add docs/screenshots/grafana_dashboard.png — the "Arxiv RAG - Conversations & Feedback" dashboard in Grafana -->
-<!-- TODO(screenshot): add docs/screenshots/streamlit_sources.png — chat reply with the cited-sources expander and 👍/👎 buttons -->
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="../docs/screenshots/grafana_dashboard.png" alt="grafana_dashboard" width="500"><br><b>Grafana</b><br><sub>Dashboards</sub></td>
+<td align="center" width="33%"><img src="../docs/screenshots/grafana_dashboard.png" alt="grafana_dashboard" width="500"><br><b>Grafana</b><br><sub>Dashboards</sub></td>
+</tr>
+</table>
+<!-- TODO(screenshot): add docs/screenshots/grafana_dashboard.png; the "Arxiv RAG - Conversations & Feedback" dashboard in Grafana -->
+<!-- TODO(screenshot): add docs/screenshots/streamlit_sources.png; chat reply with the cited-sources expander and 👍/👎 buttons -->
 
 ## See also
 
-- [`src/arxiv_rag/db.py`](../src/arxiv_rag/db.py) — Postgres access layer
-- [`grafana/provisioning/`](../grafana/provisioning) — datasource + dashboard
-- [`docs/api_scalar.md`](api_scalar.md) — the `/feedback` endpoint contract
+- [`src/arxiv_rag/db.py`](../src/arxiv_rag/db.py): Postgres access layer
+- [`grafana/provisioning/`](../grafana/provisioning): datasource + dashboard
+- [`docs/api_scalar.md`](api_scalar.md): the `/feedback` endpoint contract

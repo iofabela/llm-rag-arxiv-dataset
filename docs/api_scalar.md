@@ -25,7 +25,7 @@ The same OpenAPI spec is also served by FastAPI's default Swagger UI at
 | POST | `/chat` | Ask a question → grounded answer + sources | none |
 | POST | `/feedback` | Rate an answer 👍 (+1) / 👎 (-1) | none |
 
-### `GET /health` — Health check
+### `GET /health`: Health check
 
 Liveness probe that also reports whether OpenAI is configured and whether the
 retrieval index has been warmed up in memory.
@@ -40,7 +40,7 @@ retrieval index has been warmed up in memory.
 }
 ```
 
-### `POST /chat` — Ask a question
+### `POST /chat`: Ask a question
 
 Answer a question about ArXiv AI papers: retrieves relevant passages with the
 configured retrieval strategy, reranks/generates with the LLM, and returns
@@ -87,7 +87,7 @@ Errors: `503` when the retrieval index/generation layer is not ready,
 `500` on a generic failure. `conversation_id` is `null` when Postgres logging
 is unavailable (chat still works).
 
-### `POST /feedback` — Rate an answer
+### `POST /feedback`: Rate an answer
 
 Record a thumbs up (`1`) or thumbs down (`-1`) for a previous answer,
 identified by the `conversation_id` returned from `POST /chat`.
@@ -116,25 +116,29 @@ Errors: `500` if the row can't be saved.
 | "Sources" expander | renders `sources[]` from the `/chat` response |
 | 👍 / 👎 buttons | `POST /feedback` with the stored `conversation_id` |
 
-## Appendix — dlt ingestion service
+## Appendix: dlt ingestion service
 
 The separate ingestion service (`ingestion/service.py`) is also a FastAPI app
 (`arxiv-dlt-ingestion`) and exposes:
 
 | Endpoint | Body | Behavior |
 |---|---|---|
-| `GET /health` | — | `{"status": "ok"}` |
+| `GET /health` | none | `{"status": "ok"}` |
 | `POST /run` | `{"force_download": false}` | Runs the dlt pipeline; `409` if already running, `500` on failure |
 
 See [ingestion_pipeline.md](ingestion_pipeline.md) for how Kestra triggers it.
 
-## Screenshots
+## Screenshot
 
-<!-- TODO(screenshot): add docs/screenshots/scalar.png — the Scalar client at /scalar showing the /chat endpoint -->
+<table>
+<tr>
+<td align="center" width="33%"><img src="../docs/screenshots/api_scalar.png" alt="api_scalar" width="800"><br><b>Scalar</b><br><sub>Endpoints</sub></td>
+</tr>
+</table>
 
 ## See also
 
-- [`src/arxiv_rag/api.py`](../src/arxiv_rag/api.py) — endpoint implementation
-- [`src/arxiv_rag/rag.py`](../src/arxiv_rag/rag.py) — `RagAnswer` / `SourcePaper` models and the RAG pipeline
-- [`docs/architecture.md`](architecture.md) — end-to-end flow
-- [`Makefile`](../Makefile) — `make api`
+- [`src/arxiv_rag/api.py`](../src/arxiv_rag/api.py): endpoint implementation
+- [`src/arxiv_rag/rag.py`](../src/arxiv_rag/rag.py): `RagAnswer` / `SourcePaper` models and the RAG pipeline
+- [`docs/architecture.md`](architecture.md): end-to-end flow
+- [`Makefile`](../Makefile): `make api`
