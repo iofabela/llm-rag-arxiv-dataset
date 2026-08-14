@@ -34,7 +34,7 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-arxiv_rag}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arxiv_rag}
     ports:
-      - "3032:3032"
+      - "3032:5432"
     volumes:
       - rag_postgres_data:/var/lib/postgresql/data
     healthcheck:
