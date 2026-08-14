@@ -128,9 +128,13 @@ RETRIEVAL_STRATEGY=hybrid_rerank   # .env
 > within the run-to-run noise on most axes, so treat *small* deltas as
 > indicative. See the notebook's "Statistical reliability" section.
 
-## Screenshots
+## Screenshot
 
-<!-- TODO(screenshot): add docs/screenshots/eval_retrieval_metrics.png; bar chart of hit_rate@5 and mrr@5 by strategy -->
+<table>
+<tr>
+<td align="center" width="33%"><img src="../docs/screenshots/eval_composite_score.png" alt="eval_composite_score" width="800"><br><b>Evaluation Score</b><br><sub>Bar Chart</sub></td>
+</tr>
+</table>
 
 The relevancy, cost, latency, and composite charts already live in
 [`docs/screenshots/`](../docs/screenshots/).
