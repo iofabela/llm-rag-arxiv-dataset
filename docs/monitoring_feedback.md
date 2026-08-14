@@ -73,7 +73,6 @@ export the JSON back).
 <td align="center" width="33%"><img src="../docs/screenshots/grafana_dashboard.png" alt="grafana_dashboard" width="500"><br><b>Grafana</b><br><sub>Dashboards</sub></td>
 </tr>
 </table>
-<!-- TODO(screenshot): add docs/screenshots/grafana_dashboard.png; the "Arxiv RAG - Conversations & Feedback" dashboard in Grafana -->
 <!-- TODO(screenshot): add docs/screenshots/streamlit_sources.png; chat reply with the cited-sources expander and 👍/👎 buttons -->
 
 ## See also

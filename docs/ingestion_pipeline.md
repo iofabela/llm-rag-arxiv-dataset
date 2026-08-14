@@ -110,7 +110,15 @@ uv run python -c "from arxiv_rag.indexing import get_index; from arxiv_rag.es_se
 
 ## Screenshots
 
-<!-- TODO(screenshot): add docs/screenshots/kestra_flow.png; a successful arxiv_ingestion flow run in Kestra -->
+<table>
+<tr>
+<td align="center" width="43%"><img src="../docs/screenshots/kestra_overview.png" alt="kestra_overview" width="600"><br><b>Kestra</b><br><sub>Overview</sub></td>
+</tr>
+<tr>
+<td align="center" width="33%"><img src="../docs/screenshots/kestra_flow.png" alt="kestra_flow" width="500"><br><b>Kestra</b><br><sub>Flow</sub></td>
+<td align="center" width="33%"><img src="../docs/screenshots/kestra_exe.png" alt="kestra_exe" width="500"><br><b>Kestra</b><br><sub>Execution</sub></td>
+</tr>
+</table>
 
 ## See also
 
