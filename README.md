@@ -30,6 +30,7 @@ and synthesize the answer yourself. This project is a **RAG
 - [Running the app](#running-the-app)
 - [Documentation](#documentation)
 - [Evaluation criteria: reviewer map](#evaluation-criteria-reviewer-map)
+- [Tech stack](#tech-stack)
 
 ## Problem description
 
@@ -181,3 +182,20 @@ make eval       # build index + open the marimo evaluation notebook
 | **Best practices** | Hybrid search (BM25 + dense embeddings), document re-ranking (cross-encoder in `hybrid_rerank`), RRF fusion (`elasticsearch_rrf`) | [`src/arxiv_rag/strategies.py`](src/arxiv_rag/strategies.py), [`src/arxiv_rag/rerank.py`](src/arxiv_rag/rerank.py) |
 
 </details>
+
+## Tech Stack
+
+- **Package Manager**: uv
+- **Backend / API**: FastAPI, Uvicorn
+- **Frontend / UI**: Streamlit
+- **LLM**: OpenAI `gpt-4o-mini` (chat), `text-embedding-3-small` (embeddings)
+- **Retrieval**: hybrid search — BM25 (`rank-bm25`) + dense embeddings (`sentence-transformers`), with cross-encoder re-ranking and RRF fusion
+- **Search / Vector Store**: Elasticsearch, NumPy in-memory index
+- **Database**: PostgreSQL (conversation logs, feedback), DuckDB (ingested dataset, via `dlt`)
+- **Data Ingestion**: dlt (`dlt[duckdb]`), orchestrated daily by Kestra
+- **Monitoring**: Grafana (11-panel dashboard over Postgres)
+- **API Docs**: Scalar (`scalar-fastapi`)
+- **Evaluation**: marimo notebooks
+- **Data Validation**: Pydantic
+- **Containerization**: Docker Compose
+- **Code Quality**: ruff
