@@ -70,10 +70,16 @@ export the JSON back).
 <table>
 <tr>
 <td align="center" width="33%"><img src="../docs/screenshots/grafana_dashboard.png" alt="grafana_dashboard" width="500"><br><b>Grafana</b><br><sub>Dashboards</sub></td>
-<td align="center" width="33%"><img src="../docs/screenshots/grafana_dashboard.png" alt="grafana_dashboard" width="500"><br><b>Grafana</b><br><sub>Dashboards</sub></td>
+<td align="center" width="33%"><img src="../docs/screenshots/grafana_conversations.png" alt="grafana_conversation" width="500"><br><b>Grafana</b><br><sub>Conversations</sub></td>
 </tr>
 </table>
-<!-- TODO(screenshot): add docs/screenshots/streamlit_sources.png; chat reply with the cited-sources expander and 👍/👎 buttons -->
+
+<table>
+<tr>
+<td align="center" width="33%"><img src="../docs/screenshots/streamlit.png" alt="streamlit" width="500"><br><b>Streamlit</b><br><sub>Chat</sub></td>
+<td align="center" width="33%"><img src="../docs/screenshots/streamlit_feedback.png" alt="streamlit_feedback" width="500"><br><b>Streamlit</b><br><sub>Feedback</sub></td>
+</tr>
+</table>
 
 ## See also
 

@@ -163,7 +163,10 @@ make eval       # build index + open the marimo evaluation notebook
 | [Monitoring & feedback](docs/monitoring_feedback.md) | Postgres feedback + the 11-panel Grafana dashboard |
 | [Ingestion pipeline](docs/ingestion_pipeline.md) | dlt + DuckDB pipeline and the daily Kestra schedule |
 
-## Evaluation criteria: reviewer map
+## Evaluation criteria
+
+<details>
+<summary>Reviewer map for the project by <a href="https://github.com/DataTalksClub/llm-zoomcamp">DataTalks.Club LLM Zoomcamp</a>.</summary>
 
 | Criterion | How this project addresses it | Where |
 |---|---|---|
@@ -176,3 +179,5 @@ make eval       # build index + open the marimo evaluation notebook
 | **Containerization** | Elasticsearch, Kestra + its Postgres, the app Postgres, the dlt ingestion service, and Grafana all run via one `docker compose up -d` | [`docker-compose.yml`](docker-compose.yml), [`Makefile`](Makefile) |
 | **Reproducibility** | Pinned deps (`uv.lock`), `.env.example` with every variable documented, one-command infra + setup (`make setup`), seeded dataset cache | [Installation](#installation), [.env.example](.env.example) |
 | **Best practices** | Hybrid search (BM25 + dense embeddings), document re-ranking (cross-encoder in `hybrid_rerank`), RRF fusion (`elasticsearch_rrf`) | [`src/arxiv_rag/strategies.py`](src/arxiv_rag/strategies.py), [`src/arxiv_rag/rerank.py`](src/arxiv_rag/rerank.py) |
+
+</details>
