@@ -6,7 +6,17 @@ and get an answer **grounded in the retrieved papers, with citations**, plus
 
 Capstone project for the [DataTalks.Club LLM Zoomcamp](https://github.com/DataTalksClub/llm-zoomcamp).
 
-## Why this project
+## Table of contents
+
+- [Why this project | problem description](#why-this-project--problem-description)
+- [Data](#data)
+- [How it works (summary)](#how-it-works-summary)
+- [Installation](#installation)
+- [Running the app](#running-the-app)
+- [Documentation](#documentation)
+- [Tech stack](#tech-stack)
+
+## Why this project | problem description
 
 arXiv publishes thousands of AI/ML papers, but its search only returns *lists
 of papers*, not answers. It won't *answer* a question. To find out *"what methods do recent
@@ -20,23 +30,6 @@ and synthesize the answer yourself. This project is a **RAG
    papers don't contain the answer, it says so instead of guessing.
 4. Every conversation is logged with cost/latency/tokens, you can rate each
    answer 👍/👎, and a Grafana dashboard monitors the whole system.
-
-## Table of contents
-
-- [Problem description](#problem-description)
-- [Data](#data)
-- [How it works (summary)](#how-it-works-summary)
-- [Installation](#installation)
-- [Running the app](#running-the-app)
-- [Documentation](#documentation)
-- [Tech stack](#tech-stack)
-
-## Problem description
-
-The project solves the "list of papers vs. answer" problem described in
-[Why this project](#why-this-project): a RAG pipeline that retrieves relevant
-arXiv papers and produces a **grounded, cited answer**, plus the infrastructure
-(ingestion, monitoring, evaluation) to keep it reliable.
 
 ## Data
 
