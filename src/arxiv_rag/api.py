@@ -1,10 +1,12 @@
 """FastAPI app exposing the RAG chat backend."""
 
+import logging
 from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from openai import APIStatusError
 from pydantic import BaseModel, Field
 from scalar_fastapi import get_scalar_api_reference
 
@@ -14,6 +16,9 @@ from .indexing import get_index
 from .rag import RagAnswer, answer_question
 from .rerank import get_cross_encoder
 
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -21,11 +26,11 @@ async def lifespan(app: FastAPI):
         get_index()
         get_cross_encoder()
     except Exception as exc:  # noqa: BLE001
-        print(f"[startup] index warm-up deferred: {exc}")
+        logger.warning("index warm-up deferred: %s", exc)
     try:
         db.init_db()
     except Exception as exc:  # noqa: BLE001
-        print(f"[startup] Postgres unavailable, conversation logging disabled: {exc}")
+        logger.warning("Postgres unavailable, conversation logging disabled: %s", exc)
     yield
 
 
@@ -73,6 +78,28 @@ class FeedbackRequest(BaseModel):
     feedback: Literal[-1, 1]
 
 
+def _openai_error_detail(exc: APIStatusError) -> tuple[int, str]:
+    """Map an OpenAI API error to a safe (status_code, detail) pair for clients.
+
+    Never forwards the raw provider error body to the client -- that's for the
+    server log only. Returns 429 for rate limits/quota issues (so the frontend
+    can tell "try again shortly" apart from "the server is broken"), and 502
+    for anything else the upstream API rejected us for.
+    """
+    if exc.status_code == 429:
+        if exc.code in ("insufficient_quota", "credit_balance_exhausted") or exc.type == "insufficient_quota":
+            return 429, (
+                "The AI provider account has run out of credits. "
+                "Please contact the site administrator to top up billing and try again later."
+            )
+        return 429, "The AI provider is receiving too many requests right now. Please wait a moment and try again."
+
+    if exc.status_code in (401, 403):
+        return 502, "The backend is misconfigured (AI provider credentials rejected). Please contact the site administrator."
+
+    return 502, "The AI provider is temporarily unavailable. Please try again later."
+
+
 @app.get("/health", summary="Health check")
 def health() -> dict:
     """Report service liveness plus whether OpenAI is configured and the
@@ -97,8 +124,20 @@ def chat(request: ChatRequest) -> ChatResponse:
         result = answer_question(request.question, top_k=request.top_k)
     except RuntimeError as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
+    except APIStatusError as exc:
+        logger.error(
+            "OpenAI API error while answering question %r: status=%s code=%s type=%s body=%s",
+            request.question,
+            exc.status_code,
+            exc.code,
+            exc.type,
+            exc.body,
+        )
+        status_code, detail = _openai_error_detail(exc)
+        raise HTTPException(status_code=status_code, detail=detail) from exc
     except Exception as exc:  # noqa: BLE001
-        raise HTTPException(status_code=500, detail=f"Failed to answer question: {exc}") from exc
+        logger.exception("Unexpected error answering question %r", request.question)
+        raise HTTPException(status_code=500, detail="An unexpected error occurred while answering the question.") from exc
 
     conversation_id = None
     try:
