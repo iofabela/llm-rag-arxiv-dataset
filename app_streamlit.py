@@ -1,9 +1,14 @@
 """Streamlit chat UI for the arxiv RAG backend."""
 
+import logging
+
 import requests
 import streamlit as st
 
 from arxiv_rag.config import settings
+
+logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
+logger = logging.getLogger(__name__)
 
 st.set_page_config(page_title="Arxiv AI Papers RAG Chat", page_icon="📄")
 st.title("Arxiv AI Papers RAG Chat")
@@ -53,12 +58,37 @@ def render_feedback(msg: dict, key: str) -> None:
         down.button("👎", key=f"down-{key}", on_click=send_feedback, args=(conversation_id, -1))
 
 
+def ask_backend(question: str) -> tuple[str, list[dict], int | None, bool]:
+    """POST the question to the backend, returning (message, sources, conversation_id, is_error)."""
+    try:
+        resp = requests.post(f"{settings.backend_url}/chat", json={"question": question}, timeout=60)
+        resp.raise_for_status()
+        data = resp.json()
+        return data["answer"], data.get("sources", []), data.get("conversation_id"), False
+    except requests.exceptions.HTTPError as exc:
+        detail = None
+        try:
+            detail = exc.response.json().get("detail")
+        except (ValueError, AttributeError):
+            pass
+        logger.error("Backend returned HTTP %s for question %r: %s", exc.response.status_code, question, detail or exc)
+        message = detail or "The backend ran into a problem answering that question. Please try again in a moment."
+        return message, [], None, True
+    except requests.exceptions.RequestException as exc:
+        logger.error("Could not reach backend at %s for question %r: %s", settings.backend_url, question, exc)
+        message = "Couldn't reach the backend. Please check that it's running and try again."
+        return message, [], None, True
+
+
 for i, msg in enumerate(st.session_state.messages):
     with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+        if msg.get("is_error"):
+            st.error(msg["content"])
+        else:
+            st.markdown(msg["content"])
         if msg.get("sources"):
             render_sources(msg["sources"])
-        if msg["role"] == "assistant":
+        if msg["role"] == "assistant" and not msg.get("is_error"):
             render_feedback(msg, key=str(i))
 
 question = st.chat_input("Ask about arXiv AI papers...")
@@ -69,14 +99,12 @@ if question:
 
     with st.chat_message("assistant"):
         with st.spinner("Searching papers and generating an answer..."):
-            try:
-                resp = requests.post(f"{settings.backend_url}/chat", json={"question": question}, timeout=60)
-                resp.raise_for_status()
-                data = resp.json()
-                answer, sources, conversation_id = data["answer"], data.get("sources", []), data.get("conversation_id")
-            except requests.exceptions.RequestException as exc:
-                answer, sources, conversation_id = f"Error contacting the backend: {exc}", [], None
-        st.markdown(answer)
+            answer, sources, conversation_id, is_error = ask_backend(question)
+
+        if is_error:
+            st.error(answer)
+        else:
+            st.markdown(answer)
         if sources:
             render_sources(sources)
 
@@ -86,7 +114,9 @@ if question:
             "sources": sources,
             "conversation_id": conversation_id,
             "feedback": None,
+            "is_error": is_error,
         }
-        render_feedback(new_msg, key=str(len(st.session_state.messages)))
+        if not is_error:
+            render_feedback(new_msg, key=str(len(st.session_state.messages)))
 
     st.session_state.messages.append(new_msg)

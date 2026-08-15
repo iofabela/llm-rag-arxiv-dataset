@@ -29,7 +29,6 @@ and synthesize the answer yourself. This project is a **RAG
 - [Installation](#installation)
 - [Running the app](#running-the-app)
 - [Documentation](#documentation)
-- [Evaluation criteria: reviewer map](#evaluation-criteria-reviewer-map)
 - [Tech stack](#tech-stack)
 
 ## Problem description
@@ -78,6 +77,29 @@ The full deep dive (strategies, prompts, cost tracking, indexing) is in
 (optional, only for Elasticsearch/Postgres/Grafana/Kestra/dlt), and an OpenAI
 API key.
 
+> **Tip:** every command below is a `make` target. Run `make help` at any
+> time to see the full list with descriptions:
+>
+> ```
+> $ make help
+>
+> ArXiv AI Papers RAG Chat
+>
+>   help         Show available targets
+>   ensure-env   Create .env and make sure OPENAI_API_KEY is set (prompts if absent)
+>   setup        Install pinned dependencies (uv sync) and configure .env
+>   api          Start only the FastAPI backend on :$(API_PORT)
+>   ui           Start only the Streamlit chat UI on :$(UI_PORT)
+>   run          Start API + UI together (may take a few seconds to warm up)
+>   infra        Start optional side infra: Elasticsearch + app Postgres
+>   monitor      Start Postgres + Grafana for monitoring/feedback (needs 'make api' too)
+>   ingestion    Start Postgres + dlt ingestion service + Kestra
+>   eval         Build the index, start Elasticsearch, open the marimo evaluation notebook
+>   down         Stop and remove docker compose containers (keeps named volumes)
+>   stop         Stop docker compose containers (keeps them + volumes)
+>   logs         Tail docker compose logs
+> ```
+
 One command installs the pinned dependencies **and** sets up `.env`:
 
 ```
@@ -99,6 +121,9 @@ cp .env.example .env     # then set OPENAI_API_KEY=... in .env
 
 Key variables (full commented list in [.env.example](.env.example)):
 
+<details>
+<summary>Table of variables :</summary>
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `OPENAI_API_KEY` | none | **Required.** Used for embeddings and chat completions |
@@ -109,6 +134,8 @@ Key variables (full commented list in [.env.example](.env.example)):
 | `POSTGRES_HOST/PORT/DB/USER/PASSWORD` | `localhost:5432`, db/user/pass `arxiv_rag` | Conversation + feedback store |
 | `BACKEND_URL` | `http://localhost:8000` | Where the Streamlit UI reaches the API |
 
+</details>
+
 ### Building the index
 
 Before first chat, build the index (embeds all papers, a one-time OpenAI
@@ -118,10 +145,15 @@ cost):
 uv run python scripts/build_index.py
 ```
 
-To also use the `elasticsearch_rrf` strategy, load Elasticsearch:
+> [!NOTE]
+> Use the `elasticsearch_rrf` strategy only for 'Retrieval Evaluation' or to test changing the `.env` 
+
+The `elasticsearch_rrf` strategy, load Elasticsearch (docker-compose):
 
 ```
-docker compose up -d elasticsearch
+docker compose up -d elasticsearch    # rrf strategy to use with marimo or test on the app
+
+# |   command  |  # check with python
 uv run python -c "from arxiv_rag.indexing import get_index; from arxiv_rag.es_search import index_to_elasticsearch; index_to_elasticsearch(get_index())"
 ```
 
@@ -163,25 +195,6 @@ make eval       # build index + open the marimo evaluation notebook
 | [Retrieval evaluation](docs/retrieval_evaluation.md) | The marimo notebook comparing strategies, how to run it, latest results |
 | [Monitoring & feedback](docs/monitoring_feedback.md) | Postgres feedback + the 11-panel Grafana dashboard |
 | [Ingestion pipeline](docs/ingestion_pipeline.md) | dlt + DuckDB pipeline and the daily Kestra schedule |
-
-## Evaluation criteria
-
-<details>
-<summary>Reviewer map for the project by <a href="https://github.com/DataTalksClub/llm-zoomcamp">DataTalks.Club LLM Zoomcamp</a>.</summary>
-
-| Criterion | How this project addresses it | Where |
-|---|---|---|
-| **Problem description** | Problem, data, and end-to-end flow described above with no assumed context | [Problem description](#problem-description), [Data](#data), [How it works](#how-it-works-summary) |
-| **Retrieval flow** | Knowledge base (10k papers indexed in Elasticsearch + in-memory NumPy/BM25) and an LLM used together in a RAG flow | [architecture](docs/architecture.md), [`src/arxiv_rag/`](src/arxiv_rag) |
-| **Retrieval evaluation** | Three retrieval approaches evaluated (hit rate / MRR, LLM-as-a-judge relevancy, cost, latency, composite score, statistical significance); the winner, `hybrid_rerank`, is the recommended strategy | [Retrieval evaluation](docs/retrieval_evaluation.md), [`notebooks/`](notebooks) |
-| **Interface** | Streamlit chat UI (sources, 👍/👎 feedback) on top of a FastAPI backend | [`app_streamlit.py`](app_streamlit.py), [`src/arxiv_rag/api.py`](src/arxiv_rag/api.py) |
-| **Ingestion pipeline** | Fully automated: Kestra triggers the dlt ingestion service daily (`@daily` UTC, fresh Kaggle download, concurrency-limited) | [Ingestion pipeline](docs/ingestion_pipeline.md), [`flows/arxiv_ingestion.yml`](flows/arxiv_ingestion.yml) |
-| **Monitoring** | User feedback collected in Postgres; Grafana dashboard with 11 panels (volume, cost, latency, tokens, thumbs up/down, ratio, strategy breakdown, timelines, recent conversations) | [Monitoring & feedback](docs/monitoring_feedback.md), [`grafana/provisioning/`](grafana/provisioning) |
-| **Containerization** | Elasticsearch, Kestra + its Postgres, the app Postgres, the dlt ingestion service, and Grafana all run via one `docker compose up -d` | [`docker-compose.yml`](docker-compose.yml), [`Makefile`](Makefile) |
-| **Reproducibility** | Pinned deps (`uv.lock`), `.env.example` with every variable documented, one-command infra + setup (`make setup`), seeded dataset cache | [Installation](#installation), [.env.example](.env.example) |
-| **Best practices** | Hybrid search (BM25 + dense embeddings), document re-ranking (cross-encoder in `hybrid_rerank`), RRF fusion (`elasticsearch_rrf`) | [`src/arxiv_rag/strategies.py`](src/arxiv_rag/strategies.py), [`src/arxiv_rag/rerank.py`](src/arxiv_rag/rerank.py) |
-
-</details>
 
 ## Tech Stack
 
