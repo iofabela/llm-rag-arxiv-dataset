@@ -145,10 +145,12 @@ cost):
 uv run python scripts/build_index.py
 ```
 
-> [!NOTE]
-> Use the `elasticsearch_rrf` strategy only for 'Retrieval Evaluation' or to test changing the `.env` 
+<details>
 
-The `elasticsearch_rrf` strategy, load Elasticsearch (docker-compose):
+<summary>Just in case you want to use `elasticsearch_rrf` strategy, load Elasticsearch (docker-compose):</summary>
+
+> [!NOTE]
+> Use the `elasticsearch_rrf` strategy only for 'Retrieval Evaluation' or to test it changing the `.env` 
 
 ```
 docker compose up -d elasticsearch    # rrf strategy to use with marimo or test on the app
@@ -156,6 +158,8 @@ docker compose up -d elasticsearch    # rrf strategy to use with marimo or test 
 # |   command  |  # check with python
 uv run python -c "from arxiv_rag.indexing import get_index; from arxiv_rag.es_search import index_to_elasticsearch; index_to_elasticsearch(get_index())"
 ```
+
+</details>
 
 ## Running the app
 
