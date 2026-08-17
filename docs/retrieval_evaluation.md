@@ -116,17 +116,11 @@ with a statistically validated edge over `hybrid_only` (paired Wilcoxon
 signed-rank, p ≈ 0.02 on both MRR and relevancy). Both signals agree, so
 `hybrid_rerank` is the recommended strategy, and the production default:
 
+
 ```
 RETRIEVAL_STRATEGY=hybrid_rerank   # .env
 ```
-
-> Why is `hybrid_only`'s hit rate so much lower than intuition suggests? The
-> paraphrased questions are intentionally hard: ✓ the true paper reaches the
-> top-50 candidate pool only ~77% of the time. `hybrid_only` is RRF's top-5
-> cut and leaves papers ranked 6–50 behind, while the reranker rescues ~9 of
-> those back into the top 5. The gap is real, not a bug, but it is also
-> within the run-to-run noise on most axes, so treat *small* deltas as
-> indicative. See the notebook's "Statistical reliability" section.
+In case you need to check all evaluation result from the notebook (marimo), here's a [PDF document](/docs/retrieval_evaluation.pdf).
 
 ## Screenshot
 
